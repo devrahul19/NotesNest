@@ -1,12 +1,15 @@
 const express = require('express');
 const mongoose = require('mongoose');
 require('dotenv').config();
-
+const cookieParser = require('cookie-parser');
 const app = express();
-
+//Routes
+const userRoutes = require('./routes/user.routes');
 // Basic middleware
 app.use(express.json());
-
+app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
+app.use('/user', userRoutes);
 // Database connection with better error handling
 mongoose.connect(process.env.MONGODB_URI, {
   useNewUrlParser: true,
@@ -20,7 +23,7 @@ app.get('/', (req, res) => {
   res.json({ message: 'Server is running!' });
 });
 
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
