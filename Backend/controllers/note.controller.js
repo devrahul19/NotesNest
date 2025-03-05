@@ -1,5 +1,5 @@
 const Notes = require("../models/note.model"); 
-const cloudinary = require("cloudinary").v2;
+
 
 exports.createNote = async (req, res) => {
   try {
@@ -14,24 +14,15 @@ exports.createNote = async (req, res) => {
     }
 
     const user = req.user;
-    let imageUrl = null;
+   
 
-    if (req.file) {
-      try {
-        const uploadResult = await cloudinary.uploader.upload(req.file.path);
-        imageUrl = uploadResult.secure_url;
-      } catch (error) {
-        console.error("Error uploading to Cloudinary:", error);
-        return res.status(500).json({ error: "Image upload failed!" });
-      }
-    }
+ 
 
     const Note = new Notes({
       title,
       desc,
       authorId: user._id,
-      imageUrl,
-      likeCount: 0,
+     
     });
 
     await Note.save();

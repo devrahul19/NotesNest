@@ -14,13 +14,6 @@ const noteSchema = new mongoose.Schema({
     ref: "User",
     required: true,
   },
-  imageUrl: {
-    type: String,
-  },
-  likeCount: {
-    type: Number,
-    default: 0,
-  },
   createdAt: {
     type: Date,
     default: Date.now,
