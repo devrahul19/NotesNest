@@ -129,6 +129,118 @@ const CreateNoteModal = ({
   </AnimatePresence>
 );
 
+// Add this component after the CreateNoteModal component and before the Dashboard function
+const UpdateProfileModal = ({ 
+  isOpen, 
+  onClose, 
+  userData, 
+  onUpdate, 
+  isUpdating, 
+  updateError 
+}) => (
+  <AnimatePresence>
+    {isOpen && (
+      <motion.div
+        initial="hidden"
+        animate="visible"
+        exit="hidden"
+        variants={{
+          hidden: { opacity: 0 },
+          visible: { opacity: 1 }
+        }}
+        className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center"
+        onClick={onClose}
+      >
+        <motion.div
+          variants={{
+            hidden: {
+              opacity: 0,
+              scale: 0.8,
+              y: -20
+            },
+            visible: {
+              opacity: 1,
+              scale: 1,
+              y: 0,
+              transition: {
+                type: "spring",
+                damping: 25,
+                stiffness: 500
+              }
+            }
+          }}
+          className="bg-white rounded-2xl w-full max-w-lg mx-4 overflow-hidden shadow-2xl"
+          onClick={e => e.stopPropagation()}
+        >
+          <div className="p-6 border-b border-gray-100">
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="text-xl font-semibold text-gray-800">Update Profile</h2>
+              <motion.button
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.9 }}
+                onClick={onClose}
+                className="p-1 hover:bg-gray-100 rounded-full transition-colors"
+              >
+                <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </motion.button>
+            </div>
+          </div>
+
+          <form onSubmit={onUpdate} className="p-6 space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Username</label>
+              <input
+                type="text"
+                name="username"
+                defaultValue={userData?.username}
+                className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent outline-none transition-all"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+              <input
+                type="email"
+                name="email"
+                defaultValue={userData?.email}
+                className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent outline-none transition-all"
+              />
+            </div>
+
+            {updateError && (
+              <div className="text-red-500 text-sm">{updateError}</div>
+            )}
+
+            <div className="flex justify-end space-x-3 pt-4">
+              <motion.button
+                type="button"
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                className="px-4 py-2 text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+                onClick={onClose}
+                disabled={isUpdating}
+              >
+                Cancel
+              </motion.button>
+              <motion.button
+                type="submit"
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                className="px-4 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-colors disabled:bg-violet-300"
+                disabled={isUpdating}
+              >
+                {isUpdating ? 'Updating...' : 'Update Profile'}
+              </motion.button>
+            </div>
+          </form>
+        </motion.div>
+      </motion.div>
+    )}
+  </AnimatePresence>
+);
+
 function Dashboard() {
   const navigate = useNavigate();
   const [selectedNote, setSelectedNote] = useState(null);
@@ -150,6 +262,9 @@ function Dashboard() {
     totalNotes: 0,
     categories: {}
   });
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [updateError, setUpdateError] = useState(null);
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -342,6 +457,54 @@ function Dashboard() {
     }
   };
 
+  // Add this new function to handle profile updates
+  const handleUpdateProfile = async (e) => {
+    e.preventDefault();
+    setIsUpdating(true);
+    setUpdateError(null);
+
+    const formData = new FormData(e.target);
+    const updates = {
+        username: formData.get('username').trim(),
+        email: formData.get('email').trim()
+    };
+
+    // Only include password if it's not empty
+    const password = formData.get('password');
+    if (password && password.trim()) {
+        updates.password = password;
+    }
+
+    try {
+        const token = localStorage.getItem('token');
+        const response = await fetch(`http://localhost:4000/user/update/${userData._id}`, {
+            method: 'PUT',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(updates),
+            credentials: 'include'
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.message || 'Failed to update profile');
+        }
+
+        const data = await response.json();
+        setUserData(data);
+        setIsProfileModalOpen(false);
+        alert('Profile updated successfully!');
+        
+    } catch (err) {
+        console.error('Update error:', err);
+        setUpdateError(err.message || 'Failed to update profile');
+    } finally {
+        setIsUpdating(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 via-white to-purple-50">
@@ -433,15 +596,24 @@ function Dashboard() {
           animate={{ y: 0, opacity: 1 }}
           className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 mb-6"
         >
-          <div className="flex items-center space-x-6">
-            <div className="w-20 h-20 rounded-full bg-gradient-to-r from-violet-600 to-indigo-600 flex items-center justify-center text-white text-2xl font-semibold shadow-lg">
-              {userData?.username?.charAt(0).toUpperCase() || 'U'}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-6">
+              <div className="w-20 h-20 rounded-full bg-gradient-to-r from-violet-600 to-indigo-600 flex items-center justify-center text-white text-2xl font-semibold shadow-lg">
+                {userData?.username?.charAt(0).toUpperCase() || 'U'}
+              </div>
+              <div>
+                <h2 className="text-2xl font-bold text-gray-800">{userData?.username || 'User'}</h2>
+                <p className="text-gray-500 text-sm mt-1">{userData?.email}</p>
+              </div>
             </div>
-            <div>
-              <h2 className="text-2xl font-bold text-gray-800">{userData?.username || 'User'}</h2>
-              <p className="text-gray-500 text-sm mt-1">{userData?.email}</p>
-              <p className="text-gray-500 text-sm">Joined {new Date(userData?.createdAt).toLocaleDateString()}</p>
-            </div>
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => setIsProfileModalOpen(true)}
+              className="px-4 py-2 text-violet-600 border border-violet-600 rounded-lg hover:bg-violet-50 transition-colors"
+            >
+              Edit Profile
+            </motion.button>
           </div>
         </motion.div>
 
@@ -567,6 +739,15 @@ function Dashboard() {
         handleCreateNote={handleCreateNote}
         isSubmitting={isSubmitting}
         createError={createError}
+      />
+
+      <UpdateProfileModal 
+        isOpen={isProfileModalOpen}
+        onClose={() => setIsProfileModalOpen(false)}
+        userData={userData}
+        onUpdate={handleUpdateProfile}
+        isUpdating={isUpdating}
+        updateError={updateError}
       />
     </motion.div>
   );
