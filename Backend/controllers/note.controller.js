@@ -1,15 +1,15 @@
-const Notes = require("../models/note.model"); 
+const Note = require("../models/note.model"); 
 
 
 exports.createNote = async (req, res) => {
   try {
-    const { title, desc } = req.body;
+    const { title,category, desc } = req.body;
 
-    if (!title || !desc) {
+    if (!title || !desc || !category) {
       return res.status(400).json({ error: "All fields are mandatory!" });
     }
 
-    if (typeof title !== "string" || typeof desc !== "string") {
+    if (typeof title !== "string" || typeof desc !== "string" || typeof category !== "string") {
       return res.status(400).json({ error: "Invalid data!" });
     }
 
@@ -18,18 +18,19 @@ exports.createNote = async (req, res) => {
 
  
 
-    const Note = new Notes({
+    const newNote = new Note({
       title,
-      desc,
+      desc,   
+      category,
       authorId: user._id,
      
     });
 
-    await Note.save();
+    await newNote.save();
 
     return res.status(201).json({
       message: "New Note created successfully!",
-      Note,
+      note: newNote,
     });
   } catch (error) {
     console.error("Error creating Note:", error);
@@ -39,10 +40,26 @@ exports.createNote = async (req, res) => {
 
 exports.getAllNotes = async (req, res) => {
   try {
-    const Notes = await Notes.find().populate("authorId", "username email");
-    return res.status(200).json({ message: "All Notes", Notes });
+    const notes = await Note.find().populate("authorId", "username email");
+    return res.status(200).json({ message: "All Notes", notes });
   } catch (error) {
     console.error("Error fetching Notes:", error);
     return res.status(500).json({ error: "Internal Server Error!" });
   }
 };
+
+exports.getNoteById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const note = await Note.findById(id).populate("authorId", "username email");
+    if (!note) {
+      return res.status(404).json({ error: "Note not found" });
+    }
+    return res.status(200).json({ message: "Note found", note });
+  } catch (error) {
+    console.error("Error fetching Note by ID:", error);
+    return res.status(500).json({ error: "Internal Server Error!" });
+  }
+};
+
+

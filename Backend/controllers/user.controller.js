@@ -34,26 +34,44 @@ exports.login = async (req, res) => {
     const { email, password } = req.body;
     try {
         // Check if the user exists
-        const
-        user = await User.findOne({ email });
+        const user = await User.findOne({ email });
         if (!user) {
             return res.status(400).json({ message: 'Invalid credentials' });
         }
+        
         // Check if the password is correct
         const validPassword = await bcrypt.compare(password, user.password);
         if (!validPassword) {
             return res.status(400).json({ message: 'Invalid credentials' });
         }
-        // Create a token
-        const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET);
+        
+        // Create a token with explicit expiration
+        const token = jwt.sign(
+            { id: user._id },
+            process.env.JWT_SECRET,
+            { expiresIn: '24h' }
+        );
+
+        // Set cookie
         res.cookie('token', token, {
             httpOnly: true,
-            maxAge: 360000
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'lax',
+            maxAge: 24 * 60 * 60 * 1000 // 24 hours
         });
-        res.json({ message: 'Login successful' });
-    }
-    catch(error){
-        console.error(error);
+
+        // Send response with token and user info
+        res.json({
+            message: 'Login successful',
+            token,
+            user: {
+                id: user._id,
+                username: user.username,
+                email: user.email
+            }
+        });
+    } catch(error) {
+        console.error('Login error:', error);
         res.status(500).json({ message: 'Internal server error' });
     }
 }
@@ -82,3 +100,21 @@ exports.deleteUser=async (req,res)=> {
         res.status(500).json({ error: error.message });
 }
 };
+
+exports.getUser = async (req, res) => {
+    try {
+        // req.user is set by the authMiddleware
+        const user = await User.findById(req.user._id)
+            .select('-password')
+            .select('-__v');
+        
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        res.json(user);
+    } catch(error) {
+        console.error('GetUser Error:', error);
+        res.status(500).json({ message: 'Internal server error' });
+    }
+}

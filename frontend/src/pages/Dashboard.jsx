@@ -9,6 +9,9 @@ function Dashboard() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [notes, setNotes] = useState([]);
+  const [isNotesLoading, setIsNotesLoading] = useState(true);
+  const [notesError, setNotesError] = useState(null);
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -22,9 +25,10 @@ function Dashboard() {
         const response = await fetch('http://localhost:4000/user/getuser', {
           method: 'GET',
           headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
+            'Authorization': `Bearer ${token}`, // if you're using Authorization header
+            'Content-Type': 'application/json'
+        },
+          credentials: 'include'
         });
 
         if (response.status === 401) {
@@ -54,6 +58,40 @@ function Dashboard() {
     fetchUserData();
   }, [navigate]);
 
+  useEffect(() => {
+    fetchNotes();
+  }, []);
+
+  const fetchNotes = async () => {
+    try {
+      setIsNotesLoading(true);
+      setNotesError(null);
+      
+      const token = localStorage.getItem('token');
+      const response = await fetch('http://localhost:4000/blogs/allnotes', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        credentials: 'include'
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to fetch notes');
+      }
+
+      setNotes(data.notes);
+    } catch (err) {
+      console.error('Fetch notes error:', err);
+      setNotesError(err.message);
+    } finally {
+      setIsNotesLoading(false);
+    }
+  };
+
   const stats = [
     { label: 'Total Notes', value: '24', icon: '📝' },
     { label: 'Categories', value: '5', icon: '🏷️' }
@@ -61,32 +99,6 @@ function Dashboard() {
     // { label: 'Comments', value: '45', icon: '💬' },
   ];
 
-  const notes = [
-    {
-      id: 1,
-      title: 'React Hooks Deep Dive',
-      excerpt: 'Understanding React Hooks and their use cases in modern React applications. Includes examples of useState, useEffect, and custom hooks.',
-      category: 'Programming',
-      date: '2 hours ago',
-      content: 'Full content of React Hooks Deep Dive...'
-    },
-    {
-      id: 2,
-      title: 'TypeScript Basics',
-      excerpt: 'Getting started with TypeScript - types, interfaces, and best practices for JavaScript developers.',
-      category: 'Programming',
-      date: '5 hours ago',
-      content: 'Full content of TypeScript Basics...'
-    },
-    {
-      id: 3,
-      title: 'CSS Grid Layout',
-      excerpt: 'Modern CSS Grid techniques for responsive web design. Including examples and common patterns.',
-      category: 'Design',
-      date: '1 day ago',
-      content: 'Full content of CSS Grid Layout...'
-    },
-  ];
 
   // Modal for viewing note content
   const NoteModal = ({ note, onClose }) => (
@@ -148,7 +160,7 @@ function Dashboard() {
         >
           <motion.div
             variants={{
-              hidden: { 
+              hidden: {
                 opacity: 0,
                 scale: 0.8,
                 y: -20
@@ -276,7 +288,7 @@ function Dashboard() {
       className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-purple-50 pb-8"
     >
       {/* Header */}
-      <motion.div 
+      <motion.div
         initial={{ y: -20 }}
         animate={{ y: 0 }}
         className="sticky top-0 z-40 backdrop-blur-lg bg-white/80 border-b border-gray-200 px-4 py-3"
@@ -286,7 +298,7 @@ function Dashboard() {
             Dashboard
           </h1>
           <div className="flex items-center space-x-4">
-            <motion.button 
+            <motion.button
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.95 }}
               onClick={() => setIsModalOpen(true)}
@@ -321,7 +333,7 @@ function Dashboard() {
 
       <div className="max-w-6xl mx-auto px-4 mt-8">
         {/* User Profile Section */}
-        <motion.div 
+        <motion.div
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 mb-6"
@@ -369,23 +381,42 @@ function Dashboard() {
               <h3 className="text-lg font-semibold text-gray-800">Your Notes</h3>
             </div>
             <div className="p-4">
-              {notes.map((note) => (
-                <motion.div
-                  key={note.id}
-                  initial={{ x: -20, opacity: 0 }}
-                  animate={{ x: 0, opacity: 1 }}
-                  whileHover={{ scale: 1.02 }}
-                  onClick={() => setSelectedNote(note)}
-                  className="p-4 hover:bg-gray-50 rounded-lg transition-all cursor-pointer mb-2 last:mb-0"
-                >
-                  <h4 className="font-medium text-gray-800">{note.title}</h4>
-                  <p className="text-gray-600 text-sm mt-1 line-clamp-2">{note.excerpt}</p>
-                  <div className="flex items-center justify-between mt-2">
-                    <span className="text-violet-600 text-xs font-medium">{note.category}</span>
-                    <span className="text-gray-400 text-xs">{note.date}</span>
-                  </div>
-                </motion.div>
-              ))}
+              {isNotesLoading ? (
+                <div className="flex items-center justify-center p-8">
+                  <svg className="animate-spin h-6 w-6 text-violet-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                </div>
+              ) : notesError ? (
+                <div className="text-red-500 text-center p-4">
+                  {notesError}
+                </div>
+              ) : notes.length === 0 ? (
+                <div className="text-gray-500 text-center p-8">
+                  No notes found. Create your first note!
+                </div>
+              ) : (
+                notes.map((note) => (
+                  <motion.div
+                    key={note._id}
+                    initial={{ x: -20, opacity: 0 }}
+                    animate={{ x: 0, opacity: 1 }}
+                    whileHover={{ scale: 1.02 }}
+                    onClick={() => setSelectedNote(note)}
+                    className="p-4 hover:bg-gray-50 rounded-lg transition-all cursor-pointer mb-2 last:mb-0"
+                  >
+                    <h4 className="font-medium text-gray-800">{note.title}</h4>
+                    <p className="text-gray-600 text-sm mt-1 line-clamp-2">{note.desc}</p>
+                    <div className="flex items-center justify-between mt-2">
+                      <span className="text-violet-600 text-xs font-medium">{note.category}</span>
+                      <span className="text-gray-400 text-xs">
+                        {new Date(note.createdAt).toLocaleDateString()}
+                      </span>
+                    </div>
+                  </motion.div>
+                ))
+              )}
             </div>
           </motion.div>
 
