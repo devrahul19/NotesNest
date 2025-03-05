@@ -2,6 +2,133 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 
+// Move CreateNoteModal outside of Dashboard component
+const CreateNoteModal = ({ 
+  isModalOpen, 
+  setIsModalOpen, 
+  newNote, 
+  setNewNote, 
+  handleCreateNote, 
+  isSubmitting, 
+  createError 
+}) => (
+  <AnimatePresence>
+    {isModalOpen && (
+      <motion.div
+        initial="hidden"
+        animate="visible"
+        exit="hidden"
+        variants={{
+          hidden: { opacity: 0 },
+          visible: { opacity: 1 }
+        }}
+        className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center"
+        onClick={() => setIsModalOpen(false)}
+      >
+        <motion.div
+          variants={{
+            hidden: {
+              opacity: 0,
+              scale: 0.8,
+              y: -20
+            },
+            visible: {
+              opacity: 1,
+              scale: 1,
+              y: 0,
+              transition: {
+                type: "spring",
+                damping: 25,
+                stiffness: 500
+              }
+            }
+          }}
+          className="bg-white rounded-2xl w-full max-w-lg mx-4 overflow-hidden shadow-2xl"
+          onClick={e => e.stopPropagation()}
+        >
+          <div className="p-6 border-b border-gray-100">
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="text-xl font-semibold text-gray-800">Create New Note</h2>
+              <motion.button
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.9 }}
+                onClick={() => setIsModalOpen(false)}
+                className="p-1 hover:bg-gray-100 rounded-full transition-colors"
+              >
+                <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </motion.button>
+            </div>
+          </div>
+
+          <div className="p-6 space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
+              <input
+                type="text"
+                value={newNote.title}
+                onChange={(e) => setNewNote(prev => ({ ...prev, title: e.target.value }))}
+                className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent outline-none transition-all"
+                placeholder="Enter note title..."
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+              <select 
+                value={newNote.category}
+                onChange={(e) => setNewNote(prev => ({ ...prev, category: e.target.value }))}
+                className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent outline-none transition-all"
+              >
+                <option value="Programming">Programming</option>
+                <option value="Design">Design</option>
+                <option value="Business">Business</option>
+                <option value="Technology">Technology</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Content</label>
+              <textarea
+                value={newNote.desc}
+                onChange={(e) => setNewNote(prev => ({ ...prev, desc: e.target.value }))}
+                className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent outline-none transition-all h-32 resize-none"
+                placeholder="Write your note content..."
+              />
+            </div>
+
+            {createError && (
+              <div className="text-red-500 text-sm">{createError}</div>
+            )}
+          </div>
+
+          <div className="p-6 border-t border-gray-100 bg-gray-50 flex justify-end space-x-3">
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className="px-4 py-2 text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+              onClick={() => setIsModalOpen(false)}
+              disabled={isSubmitting}
+            >
+              Cancel
+            </motion.button>
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className="px-4 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-colors disabled:bg-violet-300"
+              onClick={handleCreateNote}
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? 'Creating...' : 'Create Note'}
+            </motion.button>
+          </div>
+        </motion.div>
+      </motion.div>
+    )}
+  </AnimatePresence>
+);
+
 function Dashboard() {
   const navigate = useNavigate();
   const [selectedNote, setSelectedNote] = useState(null);
@@ -12,6 +139,17 @@ function Dashboard() {
   const [notes, setNotes] = useState([]);
   const [isNotesLoading, setIsNotesLoading] = useState(true);
   const [notesError, setNotesError] = useState(null);
+  const [newNote, setNewNote] = useState({
+    title: '',
+    desc: '',
+    category: 'Programming'
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [createError, setCreateError] = useState(null);
+  const [stats, setStats] = useState({
+    totalNotes: 0,
+    categories: {}
+  });
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -58,10 +196,6 @@ function Dashboard() {
     fetchUserData();
   }, [navigate]);
 
-  useEffect(() => {
-    fetchNotes();
-  }, []);
-
   const fetchNotes = async () => {
     try {
       setIsNotesLoading(true);
@@ -83,7 +217,24 @@ function Dashboard() {
         throw new Error(data.message || 'Failed to fetch notes');
       }
 
-      setNotes(data.notes);
+      // Filter notes to only show the current user's notes
+      const userNotes = data.notes.filter(note => 
+        note.authorId?._id === userData?._id
+      );
+
+      setNotes(userNotes);
+
+      // Calculate stats from user's notes only
+      const categoryCount = userNotes.reduce((acc, note) => {
+        acc[note.category] = (acc[note.category] || 0) + 1;
+        return acc;
+      }, {});
+
+      setStats({
+        totalNotes: userNotes.length,
+        categories: categoryCount
+      });
+
     } catch (err) {
       console.error('Fetch notes error:', err);
       setNotesError(err.message);
@@ -92,9 +243,16 @@ function Dashboard() {
     }
   };
 
-  const stats = [
-    { label: 'Total Notes', value: '24', icon: '📝' },
-    { label: 'Categories', value: '5', icon: '🏷️' }
+  // Update useEffect to fetch notes after user data is loaded
+  useEffect(() => {
+    if (userData) {
+      fetchNotes();
+    }
+  }, [userData]); // Depend on userData instead of empty array
+
+  const statsItems = [
+    { label: 'Total Notes', value: stats.totalNotes.toString(), icon: '📝' },
+    { label: 'Categories', value: Object.keys(stats.categories).length.toString(), icon: '🏷️' }
     // { label: 'Bookmarks', value: '12', icon: '🔖' },
     // { label: 'Comments', value: '45', icon: '💬' },
   ];
@@ -144,108 +302,45 @@ function Dashboard() {
     </motion.div>
   );
 
-  const CreateNoteModal = () => (
-    <AnimatePresence>
-      {isModalOpen && (
-        <motion.div
-          initial="hidden"
-          animate="visible"
-          exit="hidden"
-          variants={{
-            hidden: { opacity: 0 },
-            visible: { opacity: 1 }
-          }}
-          className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center"
-          onClick={() => setIsModalOpen(false)}
-        >
-          <motion.div
-            variants={{
-              hidden: {
-                opacity: 0,
-                scale: 0.8,
-                y: -20
-              },
-              visible: {
-                opacity: 1,
-                scale: 1,
-                y: 0,
-                transition: {
-                  type: "spring",
-                  damping: 25,
-                  stiffness: 500
-                }
-              }
-            }}
-            className="bg-white rounded-2xl w-full max-w-lg mx-4 overflow-hidden shadow-2xl"
-            onClick={e => e.stopPropagation()}
-          >
-            <div className="p-6 border-b border-gray-100">
-              <div className="flex items-center justify-between mb-2">
-                <h2 className="text-xl font-semibold text-gray-800">Create New Note</h2>
-                <motion.button
-                  whileHover={{ scale: 1.1 }}
-                  whileTap={{ scale: 0.9 }}
-                  onClick={() => setIsModalOpen(false)}
-                  className="p-1 hover:bg-gray-100 rounded-full transition-colors"
-                >
-                  <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </motion.button>
-              </div>
-            </div>
+  const handleCreateNote = async () => {
+    try {
+      setIsSubmitting(true);
+      setCreateError(null);
+      
+      const token = localStorage.getItem('token');
+      const response = await fetch('http://localhost:4000/blogs/create', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(newNote),
+        credentials: 'include'
+      });
 
-            <div className="p-6 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
-                <input
-                  type="text"
-                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent outline-none transition-all"
-                  placeholder="Enter note title..."
-                />
-              </div>
+      const data = await response.json();
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
-                <select className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent outline-none transition-all">
-                  <option value="Programming">Programming</option>
-                  <option value="Design">Design</option>
-                  <option value="Business">Business</option>
-                  <option value="Technology">Technology</option>
-                </select>
-              </div>
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to create note');
+      }
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Content</label>
-                <textarea
-                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent outline-none transition-all h-32 resize-none"
-                  placeholder="Write your note content..."
-                />
-              </div>
-            </div>
+      // Reset form and close modal
+      setNewNote({
+        title: '',
+        desc: '',
+        category: 'Programming'
+      });
+      setIsModalOpen(false);
+      
+      // Refresh notes list
+      fetchNotes();
 
-            <div className="p-6 border-t border-gray-100 bg-gray-50 flex justify-end space-x-3">
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                className="px-4 py-2 text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
-                onClick={() => setIsModalOpen(false)}
-              >
-                Cancel
-              </motion.button>
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                className="px-4 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-colors"
-              >
-                Create Note
-              </motion.button>
-            </div>
-          </motion.div>
-        </motion.div>
-      )}
-    </AnimatePresence>
-  );
+    } catch (err) {
+      setCreateError(err.message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -352,7 +447,7 @@ function Dashboard() {
 
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-          {stats.map((stat, index) => (
+          {statsItems.map((stat, index) => (
             <motion.div
               key={stat.label}
               initial={{ y: 20, opacity: 0 }}
@@ -430,7 +525,7 @@ function Dashboard() {
               <h3 className="text-lg font-semibold text-gray-800">Categories Overview</h3>
             </div>
             <div className="p-6">
-              {['Programming', 'Design', 'Business', 'Technology'].map((category, index) => (
+              {Object.entries(stats.categories).map(([category, count], index) => (
                 <motion.div
                   key={category}
                   initial={{ x: 20, opacity: 0 }}
@@ -440,12 +535,12 @@ function Dashboard() {
                 >
                   <div className="flex items-center justify-between mb-2">
                     <span className="font-medium text-gray-700">{category}</span>
-                    <span className="text-sm text-gray-500">6 notes</span>
+                    <span className="text-sm text-gray-500">{count} notes</span>
                   </div>
                   <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
                     <motion.div
                       initial={{ width: 0 }}
-                      animate={{ width: `${Math.random() * 100}%` }}
+                      animate={{ width: `${(count / stats.totalNotes) * 100}%` }}
                       transition={{ duration: 1, delay: index * 0.1 }}
                       className="h-full bg-gradient-to-r from-violet-600 to-indigo-600"
                     />
@@ -464,7 +559,15 @@ function Dashboard() {
         )}
       </AnimatePresence>
 
-      <CreateNoteModal />
+      <CreateNoteModal 
+        isModalOpen={isModalOpen}
+        setIsModalOpen={setIsModalOpen}
+        newNote={newNote}
+        setNewNote={setNewNote}
+        handleCreateNote={handleCreateNote}
+        isSubmitting={isSubmitting}
+        createError={createError}
+      />
     </motion.div>
   );
 }

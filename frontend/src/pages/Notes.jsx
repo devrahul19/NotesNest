@@ -18,7 +18,7 @@ function Notes() {
 
   const fetchNotes = async () => {
     try {
-      setNotesLoading(true);
+      setIsLoading(true);
       setNotesError(null);
       
       const token = localStorage.getItem('token');
@@ -36,24 +36,33 @@ function Notes() {
         credentials: 'include'
       });
 
+      const data = await response.json();
+      console.log("API Response:", data); // For debugging
+
       if (!response.ok) {
-        throw new Error('Failed to fetch notes');
+        throw new Error(data.message || 'Failed to fetch notes');
       }
 
-      const data = await response.json();
-      console.log('API Response:', data); // Debug log
-
+      // Set the notes from the response
       setNotes(data.notes);
+
+      // Calculate categories and their counts
+      const categoryCount = data.notes.reduce((acc, note) => {
+        acc[note.category] = (acc[note.category] || 0) + 1;
+        return acc;
+      }, {});
+
+      // Update stats with calculated values
       setStats({
-        totalNotes: data.stats.totalNotes,
-        categories: data.stats.categories
+        totalNotes: data.notes.length,
+        categories: categoryCount
       });
 
     } catch (err) {
       console.error('Error fetching notes:', err);
       setNotesError(err.message);
     } finally {
-      setNotesLoading(false);
+      setIsLoading(false);
     }
   };
 
@@ -212,76 +221,6 @@ function Notes() {
     </AnimatePresence>
   );
 
-  const StatsSection = () => (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-      {/* Stats Cards */}
-      <motion.div 
-        initial={{ y: 20, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        className="grid grid-cols-2 gap-4"
-      >
-        <motion.div
-          whileHover={{ y: -2 }}
-          className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm"
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-2xl">📝</span>
-            <span className="text-2xl font-bold text-gray-800">{stats.totalNotes}</span>
-          </div>
-          <p className="text-gray-600 mt-2 font-medium">Total Notes</p>
-        </motion.div>
-
-        <motion.div
-          whileHover={{ y: -2 }}
-          className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm"
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-2xl">🏷️</span>
-            <span className="text-2xl font-bold text-gray-800">
-              {Object.keys(stats.categories).length}
-            </span>
-          </div>
-          <p className="text-gray-600 mt-2 font-medium">Categories</p>
-        </motion.div>
-      </motion.div>
-
-      {/* Categories Overview */}
-      <motion.div
-        initial={{ y: 20, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        className="bg-white rounded-xl border border-gray-200 shadow-sm"
-      >
-        <div className="p-6 border-b border-gray-100">
-          <h3 className="text-lg font-semibold text-gray-800">Categories Overview</h3>
-        </div>
-        <div className="p-6">
-          {Object.entries(stats.categories).map(([category, count], index) => (
-            <motion.div
-              key={category}
-              initial={{ x: 20, opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              transition={{ delay: index * 0.1 }}
-              className="mb-4 last:mb-0"
-            >
-              <div className="flex items-center justify-between mb-2">
-                <span className="font-medium text-gray-700">{category}</span>
-                <span className="text-sm text-gray-500">{count} notes</span>
-              </div>
-              <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                <motion.div
-                  initial={{ width: 0 }}
-                  animate={{ width: `${(count / stats.totalNotes) * 100}%` }}
-                  transition={{ duration: 1, delay: index * 0.1 }}
-                  className="h-full bg-gradient-to-r from-violet-600 to-indigo-600"
-                />
-              </div>
-            </motion.div>
-          ))}
-        </div>
-      </motion.div>
-    </div>
-  );
-
   return (
     <motion.div 
       initial={{ opacity: 0 }}
@@ -316,9 +255,9 @@ function Notes() {
       {/* Add the modal component */}
       <CreateNoteModal />
 
-      {/* Main content */}
+      {/* Main content - Only Notes */}
       <div className="max-w-3xl mx-auto px-4 py-4 pb-8">
-        {notesLoading ? (
+        {isLoading ? (
           <div className="flex justify-center items-center py-12">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-violet-600"></div>
           </div>
@@ -331,51 +270,48 @@ function Notes() {
             No notes found. Create your first note!
           </div>
         ) : (
-          <>
-            <StatsSection />
-            <motion.div layout className="space-y-6">
-              {notes.map((note) => (
-                <motion.article
-                  key={note._id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  whileHover={{ y: -2 }}
-                  className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm hover:shadow-xl transition-shadow duration-300"
-                >
-                  {/* Post header */}
-                  <div className="flex items-center p-4 border-b border-gray-50">
-                    <motion.div 
-                      whileHover={{ scale: 1.1 }}
-                      className="w-10 h-10 rounded-full bg-gradient-to-r from-violet-600 to-indigo-600 flex items-center justify-center text-white font-semibold shadow-lg"
-                    >
-                      {note.authorId?.username?.[0] || 'U'}
-                    </motion.div>
-                    <div className="ml-3 flex-grow">
-                      <p className="font-semibold text-gray-800">{note.authorId?.username || 'Unknown User'}</p>
-                      <p className="text-xs text-violet-500 font-medium">{note.category}</p>
-                    </div>
+          <motion.div layout className="space-y-6">
+            {notes.map((note) => (
+              <motion.article
+                key={note._id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                whileHover={{ y: -2 }}
+                className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm hover:shadow-xl transition-shadow duration-300"
+              >
+                {/* Post header */}
+                <div className="flex items-center p-4 border-b border-gray-50">
+                  <motion.div 
+                    whileHover={{ scale: 1.1 }}
+                    className="w-10 h-10 rounded-full bg-gradient-to-r from-violet-600 to-indigo-600 flex items-center justify-center text-white font-semibold shadow-lg"
+                  >
+                    {note.authorId?.username?.[0] || 'U'}
+                  </motion.div>
+                  <div className="ml-3 flex-grow">
+                    <p className="font-semibold text-gray-800">{note.authorId?.username || 'Unknown User'}</p>
+                    <p className="text-xs text-violet-500 font-medium">{note.category}</p>
                   </div>
+                </div>
 
-                  {/* Post content */}
-                  <div className="px-4 py-4">
-                    <h2 className="text-xl font-bold text-gray-800 mb-2 hover:text-violet-600 transition-colors">
-                      {note.title}
-                    </h2>
-                    <p className="text-gray-600 leading-relaxed">{note.desc}</p>
-                  </div>
+                {/* Post content */}
+                <div className="px-4 py-4">
+                  <h2 className="text-xl font-bold text-gray-800 mb-2 hover:text-violet-600 transition-colors">
+                    {note.title}
+                  </h2>
+                  <p className="text-gray-600 leading-relaxed">{note.desc}</p>
+                </div>
 
-                  {/* Post footer */}
-                  <div className="px-4 py-3 border-t border-gray-50 bg-gray-50/30">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-500">
-                        {new Date(note.createdAt).toLocaleDateString()}
-                      </span>
-                    </div>
+                {/* Post footer */}
+                <div className="px-4 py-3 border-t border-gray-50 bg-gray-50/30">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-500">
+                      {new Date(note.createdAt).toLocaleDateString()}
+                    </span>
                   </div>
-                </motion.article>
-              ))}
-            </motion.div>
-          </>
+                </div>
+              </motion.article>
+            ))}
+          </motion.div>
         )}
       </div>
     </motion.div>
