@@ -80,4 +80,26 @@ exports.getNoteById = async (req, res) => {
   }
 };
 
+exports.deleteNote = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const note = await Note.findById(id);
+
+    if (!note) {
+      return res.status(404).json({ message: "Note not found" });
+    }
+
+    // Check if user owns the note
+    if (note.authorId.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: "Not authorized to delete this note" });
+    }
+
+    await Note.findByIdAndDelete(id);
+    res.json({ message: "Note deleted successfully" });
+  } catch (error) {
+    console.error("Delete note error:", error);
+    res.status(500).json({ message: "Error deleting note" });
+  }
+};
+
 

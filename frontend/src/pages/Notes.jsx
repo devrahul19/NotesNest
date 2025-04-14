@@ -15,6 +15,9 @@ function Notes() {
     totalNotes: 0,
     categories: {}
   });
+  const [comments, setComments] = useState({});
+  const [commentInputs, setCommentInputs] = useState({});
+  const [isSubmittingComment, setIsSubmittingComment] = useState(false);
 
   const fetchNotes = async () => {
     try {
@@ -111,6 +114,79 @@ function Notes() {
 
     fetchUserData();
   }, [navigate]);
+
+  useEffect(() => {
+    // Fetch comments for all notes
+    const fetchComments = async () => {
+      const token = localStorage.getItem('token');
+      const commentPromises = notes.map(async (note) => {
+        try {
+          const response = await fetch(`http://localhost:4000/blogs/${note._id}/comments`, {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          });
+          const data = await response.json();
+          return { noteId: note._id, comments: data.comments || [] };
+        } catch (err) {
+          console.error(`Error fetching comments for note ${note._id}:`, err);
+          return { noteId: note._id, comments: [] };
+        }
+      });
+
+      const results = await Promise.all(commentPromises);
+      const commentMap = {};
+      results.forEach(({ noteId, comments }) => {
+        commentMap[noteId] = comments;
+      });
+      setComments(commentMap);
+    };
+
+    if (notes.length > 0) {
+      fetchComments();
+    }
+  }, [notes]);
+
+  const handleCommentSubmit = async (noteId, e) => {
+    e.preventDefault();
+    const commentText = commentInputs[noteId];
+    if (!commentText?.trim()) return;
+
+    setIsSubmittingComment(true);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`http://localhost:4000/blogs/${noteId}/comments`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ text: commentText })
+      });
+
+      if (!response.ok) throw new Error('Failed to post comment');
+
+      // Clear input and refresh comments
+      setCommentInputs(prev => ({ ...prev, [noteId]: '' }));
+      
+      // Optimistically update comments
+      const newComment = {
+        text: commentText,
+        userId: { username: userInitial || 'You' },
+        createdAt: new Date().toISOString()
+      };
+      
+      setComments(prev => ({
+        ...prev,
+        [noteId]: [...(prev[noteId] || []), newComment]
+      }));
+
+    } catch (err) {
+      console.error('Error posting comment:', err);
+    } finally {
+      setIsSubmittingComment(false);
+    }
+  };
 
   // Modal backdrop variants
   const backdropVariants = {
@@ -299,15 +375,86 @@ function Notes() {
                     {note.title}
                   </h2>
                   <p className="text-gray-600 leading-relaxed">{note.desc}</p>
+
+                  {/* PDF attachment if available */}
+                  {note.pdfUrl && (
+                    <div className="mt-4 p-3 bg-gray-50 rounded-lg border border-gray-100">
+                      <a 
+                        href={note.pdfUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center space-x-2 text-violet-600 hover:text-violet-700"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+                        </svg>
+                        <span className="text-sm font-medium">View PDF</span>
+                      </a>
+                    </div>
+                  )}
                 </div>
 
-                {/* Post footer */}
-                <div className="px-4 py-3 border-t border-gray-50 bg-gray-50/30">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-500">
-                      {new Date(note.createdAt).toLocaleDateString()}
+                {/* Comments section */}
+                <div className="px-4 py-3 bg-gray-50 border-t border-gray-100">
+                  <div className="flex items-center space-x-2 mb-3">
+                    <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                    </svg>
+                    <span className="text-sm font-medium text-gray-600">
+                      Comments ({comments[note._id]?.length || 0})
                     </span>
                   </div>
+                  
+                  {/* Comment form */}
+                  <form onSubmit={(e) => handleCommentSubmit(note._id, e)} className="flex gap-2 mb-3">
+                    <input
+                      type="text"
+                      value={commentInputs[note._id] || ''}
+                      onChange={(e) => setCommentInputs(prev => ({
+                        ...prev,
+                        [note._id]: e.target.value
+                      }))}
+                      placeholder="Add a comment..."
+                      className="flex-1 px-3 py-1 text-sm border border-gray-200 rounded-lg focus:ring-1 focus:ring-violet-500 focus:border-violet-500 outline-none transition-all"
+                      disabled={isSubmittingComment}
+                    />
+                    <button
+                      type="submit"
+                      className="px-3 py-1 text-sm font-medium text-white bg-violet-600 rounded-lg hover:bg-violet-700 transition-colors disabled:opacity-50"
+                      disabled={isSubmittingComment || !commentInputs[note._id]?.trim()}
+                    >
+                      {isSubmittingComment ? '...' : 'Post'}
+                    </button>
+                  </form>
+
+                  {/* Comments list */}
+                  <div className="space-y-2 max-h-40 overflow-y-auto">
+                    {comments[note._id]?.map((comment, index) => (
+                      <div key={index} className="flex items-start space-x-2">
+                        <div className="w-6 h-6 rounded-full bg-violet-100 flex items-center justify-center text-violet-600 text-xs font-medium">
+                          {comment.userId?.username?.[0] || 'U'}
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm">
+                            <span className="font-medium text-gray-800">
+                              {comment.userId?.username || 'Unknown User'}
+                            </span>
+                            <span className="text-gray-600 ml-2">{comment.text}</span>
+                          </p>
+                          <p className="text-xs text-gray-400 mt-0.5">
+                            {new Date(comment.createdAt).toLocaleString()}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Post footer with date */}
+                <div className="px-4 py-2 border-t border-gray-100">
+                  <span className="text-xs text-gray-400">
+                    Posted on {new Date(note.createdAt).toLocaleDateString()}
+                  </span>
                 </div>
               </motion.article>
             ))}
