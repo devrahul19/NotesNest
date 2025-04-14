@@ -7,6 +7,7 @@ function Notes() {
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [userInitial, setUserInitial] = useState('U');
+  const [userId, setUserId] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [notes, setNotes] = useState([]);
   const [notesLoading, setNotesLoading] = useState(true);
@@ -18,6 +19,8 @@ function Notes() {
   const [comments, setComments] = useState({});
   const [commentInputs, setCommentInputs] = useState({});
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
+  const [shareLinkModalOpen, setShareLinkModalOpen] = useState(false);
+  const [currentShareableLink, setCurrentShareableLink] = useState('');
 
   const fetchNotes = async () => {
     try {
@@ -30,7 +33,7 @@ function Notes() {
         return;
       }
 
-      const response = await fetch('http://localhost:4000/blogs/allnotes', {
+      const response = await fetch('http://localhost:4000/notes/allnotes', {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -100,6 +103,7 @@ function Notes() {
         const data = await response.json();
         if (data.username) {
           setUserInitial(data.username.charAt(0).toUpperCase());
+          setUserId(data._id);
         }
       } catch (err) {
         console.error('Error fetching user data:', err);
@@ -121,7 +125,7 @@ function Notes() {
       const token = localStorage.getItem('token');
       const commentPromises = notes.map(async (note) => {
         try {
-          const response = await fetch(`http://localhost:4000/blogs/${note._id}/comments`, {
+          const response = await fetch(`http://localhost:4000/notes/${note._id}/comments`, {
             headers: {
               'Authorization': `Bearer ${token}`
             }
@@ -155,7 +159,7 @@ function Notes() {
     setIsSubmittingComment(true);
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:4000/blogs/${noteId}/comments`, {
+      const response = await fetch(`http://localhost:4000/notes/${noteId}/comments`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -185,6 +189,27 @@ function Notes() {
       console.error('Error posting comment:', err);
     } finally {
       setIsSubmittingComment(false);
+    }
+  };
+
+  const handleGenerateShareLink = async (noteId) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`http://localhost:4000/notes/${noteId}/share-link`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message);
+
+      setCurrentShareableLink(data.shareableLink);
+      setShareLinkModalOpen(true);
+    } catch (err) {
+      alert(err.message);
     }
   };
 
@@ -297,6 +322,57 @@ function Notes() {
     </AnimatePresence>
   );
 
+  const ShareLinkModal = ({ isOpen, onClose, shareableLink }) => (
+    <AnimatePresence>
+      {isOpen && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          onClick={onClose}
+        >
+          <motion.div
+            initial={{ scale: 0.95, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.95, opacity: 0 }}
+            className="bg-white rounded-xl w-full max-w-md p-6 shadow-xl"
+            onClick={e => e.stopPropagation()}
+          >
+            <h3 className="text-lg font-semibold text-gray-800 mb-3">Share Note Link</h3>
+            <p className="text-gray-600 mb-6">Copy the link below to share this note:</p>
+            <div className="flex items-center space-x-2 mb-6">
+              <input
+                type="text"
+                readOnly
+                value={shareableLink}
+                className="flex-1 px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent outline-none transition-all text-sm"
+              />
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => navigator.clipboard.writeText(shareableLink)}
+                className="px-4 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-colors text-sm font-medium"
+              >
+                Copy
+              </motion.button>
+            </div>
+            <div className="flex justify-end">
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={onClose}
+                className="px-4 py-2 text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Close
+              </motion.button>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+
   return (
     <motion.div 
       initial={{ opacity: 0 }}
@@ -363,9 +439,22 @@ function Notes() {
                   >
                     {note.authorId?.username?.[0] || 'U'}
                   </motion.div>
-                  <div className="ml-3 flex-grow">
-                    <p className="font-semibold text-gray-800">{note.authorId?.username || 'Unknown User'}</p>
-                    <p className="text-xs text-violet-500 font-medium">{note.category}</p>
+                  <div className="ml-3 flex-grow flex items-center justify-between">
+                    <div>
+                      <p className="font-semibold text-gray-800">{note.authorId?.username || 'Unknown User'}</p>
+                      <p className="text-xs text-violet-500 font-medium">{note.category}</p>
+                    </div>
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => handleGenerateShareLink(note._id)}
+                      className="text-violet-600 hover:text-violet-700 flex items-center space-x-1"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                      </svg>
+                      <span className="text-sm font-medium">Share</span>
+                    </motion.button>
                   </div>
                 </div>
 
@@ -373,6 +462,14 @@ function Notes() {
                 <div className="px-4 py-4">
                   <h2 className="text-xl font-bold text-gray-800 mb-2 hover:text-violet-600 transition-colors">
                     {note.title}
+                    {note.isShared && (
+                      <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-violet-100 text-violet-800">
+                        <svg className="mr-1 h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
+                          <path d="M15 8a3 3 0 10-2.977-2.63l-4.94 2.47a3 3 0 100 4.319l4.94 2.47a3 3 0 10.895-1.789l-4.94-2.47a3.027 3.027 0 000-.74l4.94-2.47C13.456 7.68 14.19 8 15 8z" />
+                        </svg>
+                        Shared
+                      </span>
+                    )}
                   </h2>
                   <p className="text-gray-600 leading-relaxed">{note.desc}</p>
 
@@ -381,14 +478,17 @@ function Notes() {
                     <div className="mt-4 p-3 bg-gray-50 rounded-lg border border-gray-100">
                       <a 
                         href={note.pdfUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                        download={`note-${note._id}.pdf`}
                         className="flex items-center space-x-2 text-violet-600 hover:text-violet-700"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          window.location.href = note.pdfUrl;
+                        }}
                       >
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
                         </svg>
-                        <span className="text-sm font-medium">View PDF</span>
+                        <span className="text-sm font-medium">Download PDF</span>
                       </a>
                     </div>
                   )}
@@ -461,6 +561,13 @@ function Notes() {
           </motion.div>
         )}
       </div>
+
+      {/* Add ShareLinkModal */}
+      <ShareLinkModal
+        isOpen={shareLinkModalOpen}
+        onClose={() => setShareLinkModalOpen(false)}
+        shareableLink={currentShareableLink}
+      />
     </motion.div>
   );
 }

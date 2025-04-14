@@ -361,7 +361,7 @@ const NoteModal = ({ note, onClose }) => {
       try {
         setIsLoading(true);
         const token = localStorage.getItem('token');
-        const response = await fetch(`http://localhost:4000/blogs/${note._id}/comments`, {
+        const response = await fetch(`http://localhost:4000/notes/${note._id}/comments`, {
           headers: {
             'Authorization': `Bearer ${token}`
           }
@@ -390,7 +390,7 @@ const NoteModal = ({ note, onClose }) => {
 
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:4000/blogs/${note._id}/comments`, {
+      const response = await fetch(`http://localhost:4000/notes/${note._id}/comments`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -462,14 +462,17 @@ const NoteModal = ({ note, onClose }) => {
                       </svg>
                       <div>
                         <p className="font-medium text-gray-800">PDF Document</p>
-                        <p className="text-sm text-gray-500">Click below to download or view</p>
+                        <p className="text-sm text-gray-500">Click to download</p>
                       </div>
                     </div>
                     <a 
                       href={note.pdfUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                      download={`note-${note._id}.pdf`}
                       className="px-4 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-colors inline-flex items-center space-x-2"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        window.location.href = note.pdfUrl;
+                      }}
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
@@ -598,6 +601,58 @@ const DeleteConfirmationModal = ({ isOpen, onClose, onConfirm, isDeleting }) => 
   </AnimatePresence>
 );
 
+// Add ShareLinkModal component before Dashboard function
+const ShareLinkModal = ({ isOpen, onClose, shareableLink }) => (
+  <AnimatePresence>
+    {isOpen && (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+        onClick={onClose}
+      >
+        <motion.div
+          initial={{ scale: 0.95, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          exit={{ scale: 0.95, opacity: 0 }}
+          className="bg-white rounded-xl w-full max-w-md p-6 shadow-xl"
+          onClick={e => e.stopPropagation()}
+        >
+          <h3 className="text-lg font-semibold text-gray-800 mb-3">Share Note Link</h3>
+          <p className="text-gray-600 mb-6">Copy the link below to share this note:</p>
+          <div className="flex items-center space-x-2 mb-6">
+            <input
+              type="text"
+              readOnly
+              value={shareableLink}
+              className="flex-1 px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent outline-none transition-all text-sm"
+            />
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => navigator.clipboard.writeText(shareableLink)}
+              className="px-4 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-colors text-sm font-medium"
+            >
+              Copy
+            </motion.button>
+          </div>
+          <div className="flex justify-end space-x-3">
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={onClose}
+              className="px-4 py-2 text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              Close
+            </motion.button>
+          </div>
+        </motion.div>
+      </motion.div>
+    )}
+  </AnimatePresence>
+);
+
 function Dashboard() {
   const navigate = useNavigate();
   const [selectedNote, setSelectedNote] = useState(null);
@@ -627,6 +682,8 @@ function Dashboard() {
   // Add these new states after existing states
   const [noteToDelete, setNoteToDelete] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [shareLinkModalOpen, setShareLinkModalOpen] = useState(false);
+  const [currentShareableLink, setCurrentShareableLink] = useState('');
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -679,7 +736,7 @@ function Dashboard() {
       setNotesError(null);
       
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:4000/blogs/allnotes', {
+      const response = await fetch('http://localhost:4000/notes/allnotes', {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -749,7 +806,7 @@ function Dashboard() {
         formData.append('file', newNote.pdfFile); // Change pdfFile to file
       }
 
-      const response = await fetch('http://localhost:4000/blogs/create', {
+      const response = await fetch('http://localhost:4000/notes/create', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -836,7 +893,7 @@ function Dashboard() {
     try {
       setIsDeleting(true);
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:4000/blogs/${noteId}`, {
+      const response = await fetch(`http://localhost:4000/notes/${noteId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -873,6 +930,28 @@ function Dashboard() {
       alert(err.message || 'Failed to delete note');
     } finally {
       setIsDeleting(false);
+    }
+  };
+
+  // Add share link handler function
+  const handleGenerateShareLink = async (noteId) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`http://localhost:4000/notes/${noteId}/share-link`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message);
+
+      setCurrentShareableLink(data.shareableLink);
+      setShareLinkModalOpen(true);
+    } catch (err) {
+      alert(err.message);
     }
   };
 
@@ -1061,6 +1140,17 @@ function Dashboard() {
                         whileTap={{ scale: 0.95 }}
                         onClick={(e) => {
                           e.stopPropagation();
+                          handleGenerateShareLink(note._id);
+                        }}
+                        className="text-violet-600 hover:text-violet-700 text-sm font-medium mr-3"
+                      >
+                        Share Link
+                      </motion.button>
+                      <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={(e) => {
+                          e.stopPropagation();
                           setNoteToDelete(note);
                         }}
                         className="text-red-600 hover:text-red-700 text-sm font-medium"
@@ -1142,6 +1232,12 @@ function Dashboard() {
         onClose={() => setNoteToDelete(null)}
         onConfirm={() => handleDeleteNote(noteToDelete?._id)}
         isDeleting={isDeleting}
+      />
+
+      <ShareLinkModal
+        isOpen={shareLinkModalOpen}
+        onClose={() => setShareLinkModalOpen(false)}
+        shareableLink={currentShareableLink}
       />
     </motion.div>
   );

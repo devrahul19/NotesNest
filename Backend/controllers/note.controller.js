@@ -1,6 +1,6 @@
 const Note = require("../models/note.model"); 
-const cloudinary = require('../utils/cloudinary')
-
+const cloudinary = require('../utils/cloudinary');
+const crypto = require('crypto');
 
 exports.createNote = async (req, res) => {
   try {
@@ -99,6 +99,70 @@ exports.deleteNote = async (req, res) => {
   } catch (error) {
     console.error("Delete note error:", error);
     res.status(500).json({ message: "Error deleting note" });
+  }
+};
+
+exports.generateShareableLink = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const note = await Note.findById(id);
+
+    if (!note) {
+      return res.status(404).json({ message: "Note not found" });
+    }
+
+    // Generate random string for link
+    const shareableLink = crypto.randomBytes(32).toString('hex');
+    note.shareableLink = shareableLink;
+    note.isPublic = true;
+    await note.save();
+
+    const fullLink = `${process.env.FRONTEND_URL || "http://localhost:5173"}/notes/shared/${shareableLink}`;
+    res.json({ shareableLink: fullLink });
+
+  } catch (error) {
+    console.error("Generate link error:", error);
+    res.status(500).json({ message: "Error generating link" });
+  }
+};
+
+exports.getSharedNote = async (req, res) => {
+  try {
+    const { shareableLink } = req.params;
+    const note = await Note.findOne({ shareableLink }).populate("authorId", "username");
+
+    if (!note || !note.isPublic) {
+      return res.status(404).json({ message: "Note not found" });
+    }
+
+    res.json({ note });
+  } catch (error) {
+    console.error("Get shared note error:", error);
+    res.status(500).json({ message: "Error fetching shared note" });
+  }
+};
+
+exports.disableSharing = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const note = await Note.findById(id);
+
+    if (!note) {
+      return res.status(404).json({ message: "Note not found" });
+    }
+
+    if (note.authorId.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: "Not authorized" });
+    }
+
+    note.shareableLink = null;
+    note.isPublic = false;
+    await note.save();
+
+    res.json({ message: "Sharing disabled successfully" });
+  } catch (error) {
+    console.error("Disable sharing error:", error);
+    res.status(500).json({ message: "Error disabling sharing" });
   }
 };
 

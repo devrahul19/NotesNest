@@ -23,7 +23,16 @@ const noteSchema = new mongoose.Schema({
     type: String,
     trim: true,
     default:null
-},
+  },
+  shareableLink: {
+    type: String,
+    unique: true,
+    sparse: true
+  },
+  isPublic: {
+    type: Boolean,
+    default: false
+  }
 }, {
   timestamps: true
 });

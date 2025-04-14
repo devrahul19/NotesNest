@@ -6,6 +6,7 @@ import Login from './pages/Login';
 import Signup from './pages/Signup';
 import Notes from './pages/Notes';
 import Dashboard from './pages/Dashboard';
+import SharedNote from './pages/SharedNote';
 
 function App() {
   return (
@@ -15,6 +16,7 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
         <Route path="/notes" element={<Notes />} />
+        <Route path="/notes/shared/:shareableLink" element={<SharedNote />} />
         <Route path="/dashboard" element={<Dashboard />} />
         {/* Routes with navbar - must be inside MainLayout */}
         <Route path="/" element={<MainLayout />}>

@@ -15,13 +15,13 @@ app.use(cors({
 
 //Routes
 const userRoutes = require('./routes/user.routes');
-const blogRoutes = require('./routes/note.routes')
+const notesRoutes = require('./routes/note.routes')
 // Basic middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 app.use('/user', userRoutes);
-app.use('/blogs', blogRoutes);
+app.use('/notes', notesRoutes);
 
 // Database connection with better error handling
 mongoose.connect(process.env.MONGODB_URI, {

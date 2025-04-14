@@ -1,0 +1,109 @@
+NotesNest - Share Feature Documentation
+
+1. Overview
+-----------
+The share feature allows users to generate unique links for sharing notes with others, making them publicly accessible. The feature works across both personal notes and notes from other users.
+
+2. Technical Components
+----------------------
+Frontend:
+- Notes.jsx & Dashboard.jsx: Contains share button and modal UI
+- ShareLinkModal component: Handles link display and copy functionality
+- SharedNote.jsx: Displays shared notes to visitors
+
+Backend:
+- note.controller.js: Handles share link generation and access control
+- note.model.js: Schema includes shareableLink and isPublic fields
+
+3. How Sharing Works
+-------------------
+a) Link Generation:
+   - User clicks "Share" button on a note
+   - Frontend calls POST /blogs/:id/share-link
+   - Backend generates random 32-byte hex string
+   - Link format: http://localhost:5173/notes/shared/{hash}
+
+b) Database Storage:
+   - shareableLink: Stores unique hash
+   - isPublic: Boolean flag for shared status
+
+c) Access Control:
+   - Shared notes viewable without authentication
+   - Original note remains unchanged
+   - Original author maintains full control
+
+4. API Endpoints
+---------------
+POST /blogs/:id/share-link
+- Creates shareable link for a note
+- Requires authentication
+- Returns: { shareableLink: string }
+
+GET /blogs/shared/:shareableLink
+- Retrieves shared note content
+- Public access (no auth required)
+- Returns: { note: NoteObject }
+
+DELETE /blogs/:id/share-link 
+- Disables sharing for a note
+- Requires authentication
+- Owner-only access
+
+5. UI Components
+---------------
+Share Button:
+- Location: Note header
+- Icon: Share icon
+- Action: Opens ShareLinkModal
+
+ShareLinkModal:
+- Full generated URL display
+- Copy button with clipboard functionality
+- Close button
+- Backdrop click to dismiss
+
+Shared Status Indicator:
+- Badge with "Shared" text
+- Appears when note is currently shared
+
+6. Security Considerations
+-------------------------
+- Cryptographically secure random link generation
+- No edit access through shared links
+- View-only access for shared content
+- Original author can revoke access
+- No sensitive data exposed in shared view
+
+7. Implementation Details
+------------------------
+Frontend:
+- handleGenerateShareLink(): Handles share request
+- ShareLinkModal: Manages link display/copy
+- Shared badge shows current share status
+
+Backend:
+- crypto.randomBytes(): Generates secure random links
+- Access control checks in controllers
+- Database tracking of share status
+
+8. User Experience
+-----------------
+- One-click sharing process
+- Easy link copying
+- Visual feedback for shared status
+- Persistent share links
+- Mobile-responsive design
+
+9. Limitations & Future Improvements
+----------------------------------
+Current Limitations:
+- No expiration for shared links
+- Can't restrict to specific users
+- No view tracking
+
+Planned Improvements:
+- Temporary share links
+- Password protection
+- Analytics for shared notes
+- Share revocation tracking
+- Direct email sharing
