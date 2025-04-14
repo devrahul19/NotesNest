@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import AuthLayout from '../components/AuthLayout';
+import { baseurl } from '../config';
 
 function Login() {
   const navigate = useNavigate();
@@ -17,7 +18,7 @@ function Login() {
     setIsLoading(true);
 
     try {
-      const response = await fetch('http://localhost:4000/user/login', {
+      const response = await fetch(`${baseurl}/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

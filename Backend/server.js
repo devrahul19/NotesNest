@@ -7,7 +7,7 @@ const cookieParser = require('cookie-parser');
 const app = express();
 
 app.use(cors({
-  origin: 'http://localhost:5173', // your frontend URL
+  origin: ['http://localhost:5173', 'https://notes-nest-olive.vercel.app'], // your frontend URLs
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']

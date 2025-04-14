@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import AuthLayout from '../components/AuthLayout';
+import { baseurl } from '../config';
 
 function Signup() {
   const navigate = useNavigate();
@@ -19,7 +20,7 @@ function Signup() {
     setIsLoading(true);
 
     try {
-      const response = await fetch('http://localhost:4000/user/signup', {
+      const response = await fetch(`${baseurl}/auth/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
