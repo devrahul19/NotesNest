@@ -679,11 +679,13 @@ function Dashboard() {
   const [isUpdating, setIsUpdating] = useState(false);
   const [updateError, setUpdateError] = useState(null);
 
-  // Add these new states after existing states
   const [noteToDelete, setNoteToDelete] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [shareLinkModalOpen, setShareLinkModalOpen] = useState(false);
   const [currentShareableLink, setCurrentShareableLink] = useState('');
+
+  const [likes, setLikes] = useState({});
+  const [isLiking, setIsLiking] = useState(false);
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -777,18 +779,46 @@ function Dashboard() {
     }
   };
 
-  // Update useEffect to fetch notes after user data is loaded
+  const fetchLikes = async () => {
+    const token = localStorage.getItem('token');
+    const likesPromises = notes.map(async (note) => {
+      try {
+        const response = await fetch(`http://localhost:4000/likes/${note._id}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        const data = await response.json();
+        return { noteId: note._id, likes: data.totalLikes, isLiked: data.isLiked };
+      } catch (err) {
+        console.error(`Error fetching likes for note ${note._id}:`, err);
+        return { noteId: note._id, likes: 0, isLiked: false };
+      }
+    });
+
+    const results = await Promise.all(likesPromises);
+    const likesMap = {};
+    results.forEach(({ noteId, likes, isLiked }) => {
+      likesMap[noteId] = { count: likes, isLiked };
+    });
+    setLikes(likesMap);
+  };
+
   useEffect(() => {
     if (userData) {
       fetchNotes();
     }
-  }, [userData]); // Depend on userData instead of empty array
+  }, [userData]);
+
+  useEffect(() => {
+    if (notes.length > 0) {
+      fetchLikes();
+    }
+  }, [notes]);
 
   const statsItems = [
     { label: 'Total Notes', value: stats.totalNotes.toString(), icon: '📝' },
     { label: 'Categories', value: Object.keys(stats.categories).length.toString(), icon: '🏷️' }
-    // { label: 'Bookmarks', value: '12', icon: '🔖' },
-    // { label: 'Comments', value: '45', icon: '💬' },
   ];
 
   const handleCreateNote = async () => {
@@ -840,7 +870,6 @@ function Dashboard() {
     }
   };
 
-  // Add this new function to handle profile updates
   const handleUpdateProfile = async (e) => {
     e.preventDefault();
     setIsUpdating(true);
@@ -852,7 +881,6 @@ function Dashboard() {
         email: formData.get('email').trim()
     };
 
-    // Only include password if it's not empty
     const password = formData.get('password');
     if (password && password.trim()) {
         updates.password = password;
@@ -888,7 +916,6 @@ function Dashboard() {
     }
   };
 
-  // Add delete note handler function after fetchNotes
   const handleDeleteNote = async (noteId) => {
     try {
       setIsDeleting(true);
@@ -902,18 +929,15 @@ function Dashboard() {
         credentials: 'include'
       });
 
-      // Handle both success and error JSON responses
       const data = await response.json();
       
       if (!response.ok) {
         throw new Error(data.message || 'Failed to delete note');
       }
 
-      // Remove note from state
       setNotes(prev => prev.filter(note => note._id !== noteId));
       setNoteToDelete(null);
 
-      // Update stats
       const updatedNotes = notes.filter(note => note._id !== noteId);
       const categoryCount = updatedNotes.reduce((acc, note) => {
         acc[note.category] = (acc[note.category] || 0) + 1;
@@ -933,7 +957,6 @@ function Dashboard() {
     }
   };
 
-  // Add share link handler function
   const handleGenerateShareLink = async (noteId) => {
     try {
       const token = localStorage.getItem('token');
@@ -952,6 +975,37 @@ function Dashboard() {
       setShareLinkModalOpen(true);
     } catch (err) {
       alert(err.message);
+    }
+  };
+
+  const handleLike = async (noteId) => {
+    if (isLiking) return;
+    
+    try {
+      setIsLiking(true);
+      const token = localStorage.getItem('token');
+      const response = await fetch(`http://localhost:4000/likes/${noteId}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        }
+      });
+
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message);
+
+      setLikes(prev => ({
+        ...prev,
+        [noteId]: {
+          count: data.totalLikes,
+          isLiked: !prev[noteId]?.isLiked
+        }
+      }));
+
+    } catch (err) {
+      console.error('Error liking note:', err);
+    } finally {
+      setIsLiking(false);
     }
   };
 
@@ -995,7 +1049,6 @@ function Dashboard() {
       animate={{ opacity: 1 }}
       className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-purple-50 pb-8"
     >
-      {/* Header */}
       <motion.div
         initial={{ y: -20 }}
         animate={{ y: 0 }}
@@ -1040,7 +1093,6 @@ function Dashboard() {
       </motion.div>
 
       <div className="max-w-6xl mx-auto px-4 mt-8">
-        {/* User Profile Section */}
         <motion.div
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
@@ -1067,7 +1119,6 @@ function Dashboard() {
           </div>
         </motion.div>
 
-        {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
           {statsItems.map((stat, index) => (
             <motion.div
@@ -1086,9 +1137,7 @@ function Dashboard() {
           ))}
         </div>
 
-        {/* Notes and Categories Sections */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Your Notes */}
           <motion.div
             initial={{ y: 20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
@@ -1140,6 +1189,30 @@ function Dashboard() {
                         whileTap={{ scale: 0.95 }}
                         onClick={(e) => {
                           e.stopPropagation();
+                          handleLike(note._id);
+                        }}
+                        className="text-gray-600 hover:text-violet-600 transition-colors mr-3 flex items-center space-x-1"
+                      >
+                        <svg 
+                          className={`w-5 h-5 ${likes[note._id]?.isLiked ? 'text-violet-600 fill-current' : ''}`} 
+                          fill="none" 
+                          stroke="currentColor" 
+                          viewBox="0 0 24 24"
+                        >
+                          <path 
+                            strokeLinecap="round" 
+                            strokeLinejoin="round" 
+                            strokeWidth="2" 
+                            d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" 
+                          />
+                        </svg>
+                        <span className="text-sm">{likes[note._id]?.count || 0}</span>
+                      </motion.button>
+                      <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={(e) => {
+                          e.stopPropagation();
                           handleGenerateShareLink(note._id);
                         }}
                         className="text-violet-600 hover:text-violet-700 text-sm font-medium mr-3"
@@ -1164,7 +1237,6 @@ function Dashboard() {
             </div>
           </motion.div>
 
-          {/* Categories Overview */}
           <motion.div
             initial={{ y: 20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
@@ -1201,7 +1273,6 @@ function Dashboard() {
         </div>
       </div>
 
-      {/* Note View Modal */}
       <AnimatePresence>
         {selectedNote && (
           <NoteModal note={selectedNote} onClose={() => setSelectedNote(null)} />
@@ -1244,3 +1315,4 @@ function Dashboard() {
 }
 
 export default Dashboard;
+

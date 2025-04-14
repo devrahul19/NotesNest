@@ -21,6 +21,8 @@ function Notes() {
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
   const [shareLinkModalOpen, setShareLinkModalOpen] = useState(false);
   const [currentShareableLink, setCurrentShareableLink] = useState('');
+  const [likes, setLikes] = useState({});
+  const [isLiking, setIsLiking] = useState(false);
 
   const fetchNotes = async () => {
     try {
@@ -212,6 +214,67 @@ function Notes() {
       alert(err.message);
     }
   };
+
+  const handleLike = async (noteId) => {
+    if (isLiking) return;
+    
+    try {
+      setIsLiking(true);
+      const token = localStorage.getItem('token');
+      const response = await fetch(`http://localhost:4000/likes/${noteId}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message);
+
+      // Update likes state
+      setLikes(prev => ({
+        ...prev,
+        [noteId]: data.totalLikes
+      }));
+
+    } catch (err) {
+      console.error('Error liking note:', err);
+    } finally {
+      setIsLiking(false);
+    }
+  };
+
+  useEffect(() => {
+    const fetchLikes = async () => {
+      const token = localStorage.getItem('token');
+      const likesPromises = notes.map(async (note) => {
+        try {
+          const response = await fetch(`http://localhost:4000/likes/${note._id}`, {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          });
+          const data = await response.json();
+          return { noteId: note._id, likes: data.totalLikes };
+        } catch (err) {
+          console.error(`Error fetching likes for note ${note._id}:`, err);
+          return { noteId: note._id, likes: 0 };
+        }
+      });
+
+      const results = await Promise.all(likesPromises);
+      const likesMap = {};
+      results.forEach(({ noteId, likes }) => {
+        likesMap[noteId] = likes;
+      });
+      setLikes(likesMap);
+    };
+
+    if (notes.length > 0) {
+      fetchLikes();
+    }
+  }, [notes]);
 
   // Modal backdrop variants
   const backdropVariants = {
@@ -444,17 +507,41 @@ function Notes() {
                       <p className="font-semibold text-gray-800">{note.authorId?.username || 'Unknown User'}</p>
                       <p className="text-xs text-violet-500 font-medium">{note.category}</p>
                     </div>
-                    <motion.button
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                      onClick={() => handleGenerateShareLink(note._id)}
-                      className="text-violet-600 hover:text-violet-700 flex items-center space-x-1"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
-                      </svg>
-                      <span className="text-sm font-medium">Share</span>
-                    </motion.button>
+                    <div className="flex items-center space-x-4">
+                      <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => handleLike(note._id)}
+                        className="flex items-center space-x-1 text-gray-600 hover:text-violet-600 transition-colors"
+                        disabled={isLiking}
+                      >
+                        <svg 
+                          className={`w-5 h-5 ${likes[note._id] ? 'text-violet-600 fill-current' : ''}`} 
+                          fill="none" 
+                          stroke="currentColor" 
+                          viewBox="0 0 24 24"
+                        >
+                          <path 
+                            strokeLinecap="round" 
+                            strokeLinejoin="round" 
+                            strokeWidth="2" 
+                            d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" 
+                          />
+                        </svg>
+                        <span className="text-sm font-medium">{likes[note._id] || 0}</span>
+                      </motion.button>
+                      <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => handleGenerateShareLink(note._id)}
+                        className="text-violet-600 hover:text-violet-700 flex items-center space-x-1"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                        </svg>
+                        <span className="text-sm font-medium">Share</span>
+                      </motion.button>
+                    </div>
                   </div>
                 </div>
 

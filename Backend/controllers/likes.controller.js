@@ -33,3 +33,23 @@ exports.likeNote = async (req, res) => {
     res.status(500).json({ error: "Internal Server Error" });
   }
 };
+
+// Add new method to get likes count
+exports.getLikes = async (req, res) => {
+  try {
+    const noteID = req.params.id;
+    const totalLikes = await Like.countDocuments({ noteID });
+    const isLiked = await Like.exists({ 
+      noteID, 
+      userID: req.user?._id 
+    });
+
+    return res.status(200).json({ 
+      totalLikes,
+      isLiked: !!isLiked
+    });
+  } catch (error) {
+    console.error("Error getting likes:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+};
