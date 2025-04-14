@@ -1,9 +1,11 @@
 const Note = require("../models/note.model"); 
-
+const cloudinary = require('cloudinary');
+const { url } = require("../utils/cloudinary");
 
 exports.createNote = async (req, res) => {
   try {
     const { title,category, desc } = req.body;
+    console.log(req.body);
 
     if (!title || !desc || !category) {
       return res.status(400).json({ error: "All fields are mandatory!" });
@@ -14,8 +16,16 @@ exports.createNote = async (req, res) => {
     }
 
     const user = req.user;
-   
-
+   let url = null;
+    if (req.file) {
+      const uploadResult = await cloudinary.uploader
+        .upload(req.file.path, {})
+        .catch((error) => {
+          console.log(error);
+        });
+  
+      url = uploadResult.secure_url;
+    }
  
 
     const newNote = new Note({
@@ -23,6 +33,7 @@ exports.createNote = async (req, res) => {
       desc,   
       category,
       authorId: user._id,
+      pdfUrl: url
      
     });
 

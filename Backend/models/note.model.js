@@ -19,6 +19,11 @@ const noteSchema = new mongoose.Schema({
     ref: "User",
     required: true,
   },
+  pdfUrl:{
+    type: String,
+    trim: true,
+    default:null
+},
 }, {
   timestamps: true
 });
