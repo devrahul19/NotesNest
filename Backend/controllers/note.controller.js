@@ -1,6 +1,6 @@
 const Note = require("../models/note.model"); 
-const cloudinary = require('cloudinary');
-const { url } = require("../utils/cloudinary");
+const cloudinary = require('../utils/cloudinary')
+
 
 exports.createNote = async (req, res) => {
   try {
@@ -19,7 +19,14 @@ exports.createNote = async (req, res) => {
    let url = null;
     if (req.file) {
       const uploadResult = await cloudinary.uploader
-        .upload(req.file.path, {})
+        .upload(req.file.path, {
+          resource_type: 'raw'
+        })
+        .then((resut)=>{
+          console.log("uploaded successfully")
+          console.log(resut);
+          return resut;
+        })
         .catch((error) => {
           console.log(error);
         });
