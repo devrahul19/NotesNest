@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { baseurl } from '../config';
 
 function Notes() {
   const navigate = useNavigate();
@@ -34,7 +33,7 @@ function Notes() {
         return;
       }
 
-      const response = await fetch(`${baseurl}/notes/all`, {
+      const response = await fetch('http://localhost:4000/notes/allnotes', {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,

@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { baseurl } from '../config';
 
 // Move CreateNoteModal outside of Dashboard component
 const CreateNoteModal = ({ 
@@ -362,7 +361,7 @@ const NoteModal = ({ note, onClose }) => {
       try {
         setIsLoading(true);
         const token = localStorage.getItem('token');
-        const response = await fetch(`${baseurl}/notes/${note._id}/comments`, {
+        const response = await fetch(`http://localhost:4000/notes/${note._id}/comments`, {
           headers: {
             'Authorization': `Bearer ${token}`
           }
@@ -391,7 +390,7 @@ const NoteModal = ({ note, onClose }) => {
 
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${baseurl}/notes/${note._id}/comments`, {
+      const response = await fetch(`http://localhost:4000/notes/${note._id}/comments`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -695,7 +694,7 @@ function Dashboard() {
           return;
         }
 
-        const response = await fetch(`${baseurl}/user/getuser`, {
+        const response = await fetch('http://localhost:4000/user/getuser', {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${token}`, // if you're using Authorization header
@@ -737,7 +736,7 @@ function Dashboard() {
       setNotesError(null);
       
       const token = localStorage.getItem('token');
-      const response = await fetch(`${baseurl}/notes/allnotes`, {
+      const response = await fetch('http://localhost:4000/notes/allnotes', {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -807,7 +806,7 @@ function Dashboard() {
         formData.append('file', newNote.pdfFile); // Change pdfFile to file
       }
 
-      const response = await fetch(`${baseurl}/notes/create`, {
+      const response = await fetch('http://localhost:4000/notes/create', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -861,7 +860,7 @@ function Dashboard() {
 
     try {
         const token = localStorage.getItem('token');
-        const response = await fetch(`${baseurl}/user/update/${userData._id}`, {
+        const response = await fetch(`http://localhost:4000/user/update/${userData._id}`, {
             method: 'PUT',
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -894,7 +893,7 @@ function Dashboard() {
     try {
       setIsDeleting(true);
       const token = localStorage.getItem('token');
-      const response = await fetch(`${baseurl}/notes/${noteId}`, {
+      const response = await fetch(`http://localhost:4000/notes/${noteId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -938,7 +937,7 @@ function Dashboard() {
   const handleGenerateShareLink = async (noteId) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${baseurl}/notes/${noteId}/share-link`, {
+      const response = await fetch(`http://localhost:4000/notes/${noteId}/share-link`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
