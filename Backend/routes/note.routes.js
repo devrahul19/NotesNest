@@ -23,6 +23,6 @@ router.post("/:NoteId/comments", authenticationToken, addComments);
 router.delete("/:id", authenticationToken, deleteNote);
 router.post("/:id/share-link", authenticationToken, generateShareableLink);
 router.get("/shared/:shareableLink", getSharedNote);
-router.delete("/:id/share-link", authenticationToken, disableSharing);
+
 
 module.exports = router;

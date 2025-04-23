@@ -141,29 +141,3 @@ exports.getSharedNote = async (req, res) => {
     res.status(500).json({ message: "Error fetching shared note" });
   }
 };
-
-exports.disableSharing = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const note = await Note.findById(id);
-
-    if (!note) {
-      return res.status(404).json({ message: "Note not found" });
-    }
-
-    if (note.authorId.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ message: "Not authorized" });
-    }
-
-    note.shareableLink = null;
-    note.isPublic = false;
-    await note.save();
-
-    res.json({ message: "Sharing disabled successfully" });
-  } catch (error) {
-    console.error("Disable sharing error:", error);
-    res.status(500).json({ message: "Error disabling sharing" });
-  }
-};
-
-

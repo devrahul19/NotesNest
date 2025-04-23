@@ -45,8 +45,7 @@ exports.getLikes = async (req, res) => {
     });
 
     return res.status(200).json({ 
-      totalLikes,
-      isLiked: !!isLiked
+      totalLikes
     });
   } catch (error) {
     console.error("Error getting likes:", error);
